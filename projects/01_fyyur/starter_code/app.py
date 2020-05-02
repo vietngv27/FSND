@@ -173,14 +173,23 @@ def search_venues():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for Hop should return "The Musical Hop".
   # search for "Music" should return "The Musical Hop" and "Park Square Live Music & Coffee"
-  response={
-    "count": 1,
-    "data": [{
-      "id": 2,
-      "name": "The Dueling Pianos Bar",
-      "num_upcoming_shows": 0,
-    }]
+  # response={
+  #   "count": 1,
+  #   "data": [{
+  #     "id": 2,
+  #     "name": "The Dueling Pianos Bar",
+  #     "num_upcoming_shows": 0,
+  #   }]
+  # }
+
+  search_term = '%' + request.form.get('search_term', '') + '%'
+  venues = Venue.query.filter(Venue.name.ilike(search_term)).all()
+
+  response = {
+    "count": len(venues),
+    "data": [{"id": venue.id, "name": venue.name} for venue in venues]
   }
+
   return render_template('pages/search_venues.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/venues/<int:venue_id>')
@@ -286,6 +295,20 @@ def show_venue(venue_id):
     'upcoming_shows_count': 0
   }
 
+  for show in venue.shows:
+    show_data = {
+      'artist_id': show.artist_id,
+      'artist_name': show.artist.name,
+      'artist_image_link': show.artist.image_link,
+      'start_time': str(show.start_time)
+    }
+    if show.start_time >= datetime.today():
+      data['upcoming_shows'].append(show_data)
+      data['upcoming_shows_count'] += 1
+    else:
+      data['past_shows'].append(show_data)
+      data['past_shows_count'] += 1
+
   return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -302,7 +325,6 @@ def create_venue_submission():
   # TODO: modify data to be the data object returned from db insertion
   error = False
   try:
-    print(request.form)
     venue = Venue()
     venue.name = request.form['name']
     venue.city = request.form['city']
@@ -339,10 +361,23 @@ def create_venue_submission():
 def delete_venue(venue_id):
   # TODO: Complete this endpoint for taking a venue_id, and using
   # SQLAlchemy ORM to delete a record. Handle cases where the session commit could fail.
+  error = False
+  try:
+    venue = Venue.query.get(venue_id)
+    db.session.delete(venue)
+    db.session.commit()
+  except:
+    error = True
+    db.session.rollback()
+    print(sys.exc_info())
+  finally:
+    db.session.close()
 
+  if error:
+    flash('An error occurred. Venue ' + venue_id + ' could not be deleted.')
   # BONUS CHALLENGE: Implement a button to delete a Venue on a Venue Page, have it so that
   # clicking that button delete it from the db then redirect the user to the homepage
-  return None
+  return redirect(url_for('index'))
 
 #  Artists
 #  ----------------------------------------------------------------
@@ -376,14 +411,23 @@ def search_artists():
   # TODO: implement search on artists with partial string search. Ensure it is case-insensitive.
   # seach for "A" should return "Guns N Petals", "Matt Quevado", and "The Wild Sax Band".
   # search for "band" should return "The Wild Sax Band".
-  response={
-    "count": 1,
-    "data": [{
-      "id": 4,
-      "name": "Guns N Petals",
-      "num_upcoming_shows": 0,
-    }]
+  # response={
+  #   "count": 1,
+  #   "data": [{
+  #     "id": 4,
+  #     "name": "Guns N Petals",
+  #     "num_upcoming_shows": 0,
+  #   }]
+  # }
+
+  search_term = '%' + request.form.get('search_term', '') + '%'
+  artists = Artist.query.filter(Artist.name.ilike(search_term)).all()
+
+  response = {
+    "count": len(artists),
+    "data": [{"id": artist.id, "name": artist.name} for artist in artists]
   }
+
   return render_template('pages/search_artists.html', results=response, search_term=request.form.get('search_term', ''))
 
 @app.route('/artists/<int:artist_id>')
@@ -481,6 +525,20 @@ def show_artist(artist_id):
     'past_shows_count': 0,
     'upcoming_shows_count': 0
   }
+
+  for show in artist.shows:
+    show_data = {
+      'venue_id': show.venue_id,
+      'venue_name': show.venue.name,
+      'venue_image_link': show.venue.image_link,
+      'start_time': str(show.start_time)
+    }
+    if show.start_time >= datetime.today():
+      data['upcoming_shows'].append(show_data)
+      data['upcoming_shows_count'] += 1
+    else:
+      data['past_shows'].append(show_data)
+      data['past_shows_count'] += 1
 
   return render_template('pages/show_artist.html', artist=data)
 
